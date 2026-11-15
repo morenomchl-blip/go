@@ -77,7 +77,8 @@ button.ghost{background:transparent;color:var(--accent);border:1px solid var(--a
     card.innerHTML = "";
     card.appendChild(el("h1", null, title));
     card.appendChild(el("p", "sub", sub));
-    card.appendChild(el("div", "text", text));
+    var box = el("div", "text", text); box.dir = "auto";  // Hebrew drafts read right-to-left
+    card.appendChild(box);
     var row = el("div", "row"); buttons.forEach(function (b) { row.appendChild(b); });
     card.appendChild(row);
     card.appendChild(el("p", "note", ""));
