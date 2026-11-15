@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Hand-off</title>
+<!--
+  Hand-off page for the LinkedIn engagement digest (tools/linkedin_engage_digest.py).
+  Source of truth: web/go/index.html in the private repo; deployed copy lives in the
+  public repo morenomchl-blip/go (GitHub Pages).
+
+  Everything this page shows travels in the URL FRAGMENT (after #). Browsers never
+  send the fragment to a server, so GitHub sees a request for /go/ and nothing else.
+  The page stores nothing.
+
+    #a=comment&u=<post url>&t=<comment>   copy the comment, then open the post
+    #a=claude&p=<prompt>                  open Claude Code with the prompt filled in
+
+  Why a page at all: Gmail strips vscode:// links, and LinkedIn has no URL that
+  pre-fills a comment. Clipboard writes need a click, so each action is one button.
+-->
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1a1a1a;--mute:#666;--line:#e3e3e3;--accent:#0a66c2;--box:#f3f5f8;}
+@media (prefers-color-scheme:dark){:root{--bg:#15171a;--card:#1e2125;--ink:#eceff3;--mute:#9aa3ad;--line:#30353b;--accent:#4c9be8;--box:#262a30;}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
+.wrap{max-width:640px;margin:0 auto;padding:24px 16px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;}
+h1{font-size:18px;margin:0 0 4px;}
+.sub{color:var(--mute);font-size:13px;margin:0 0 14px;}
+.text{background:var(--box);border-radius:6px;padding:12px;white-space:pre-wrap;word-wrap:break-word;font-size:14px;max-height:50vh;overflow:auto;}
+.row{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;}
+button{font:inherit;border:0;border-radius:6px;padding:10px 16px;cursor:pointer;background:var(--accent);color:#fff;font-weight:600;}
+button.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent);font-weight:500;}
+.note{color:var(--mute);font-size:12px;margin-top:12px;min-height:1em;}
+</style>
+</head>
+<body>
+<div class="wrap"><div class="card" id="card">
+  <h1 id="h">Nothing to hand off</h1>
+  <p class="sub" id="sub">This link carries no content.</p>
+</div></div>
+<script>
+(function () {
+  var q = new URLSearchParams(location.hash.slice(1));
+  var a = q.get("a");
+  var card = document.getElementById("card");
+
+  function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+
+  function copy(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).then(function () { return true; }, function () { return legacy(text); });
+    }
+    return Promise.resolve(legacy(text));
+  }
+  function legacy(text) {
+    var t = document.createElement("textarea");
+    t.value = text; t.style.position = "fixed"; t.style.opacity = "0";
+    document.body.appendChild(t); t.select();
+    var ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
+    document.body.removeChild(t); return ok;
+  }
+
+  // Only ever forward to LinkedIn. Anything else is refused, so this page can
+  // never be used to bounce someone to an arbitrary site.
+  function safePost(u) {
+    try { var x = new URL(u); } catch (e) { return null; }
+    if (x.protocol !== "https:") return null;
+    var h = x.hostname;
+    return (h === "lnkd.in" || h === "linkedin.com" || h.slice(-13) === ".linkedin.com") ? x.href : null;
+  }
+
+  function render(title, sub, text, buttons) {
+    card.innerHTML = "";
+    card.appendChild(el("h1", null, title));
+    card.appendChild(el("p", "sub", sub));
+    card.appendChild(el("div", "text", text));
+    var row = el("div", "row"); buttons.forEach(function (b) { row.appendChild(b); });
+    card.appendChild(row);
+    card.appendChild(el("p", "note", ""));
+  }
+  function note(msg) { card.querySelector(".note").textContent = msg; }
+
+  if (a === "comment") {
+    var text = q.get("t") || "", post = safePost(q.get("u") || "");
+    var go = el("button", null, post ? "Copy comment and open the post" : "Copy comment");
+    go.onclick = function () {
+      copy(text).then(function (ok) {
+        note(ok ? "Copied. Paste it into the comment box." : "Could not copy automatically. Select the text above and copy it.");
+        if (post) setTimeout(function () { location.href = post; }, 350);
+      });
+    };
+    render("Your comment", post ? "One click copies it and opens the post. Paste it, check it reads right, post it."
+                                : "The post link is missing or not a LinkedIn link, so only the copy works here.", text, [go]);
+  } else if (a === "claude") {
+    var prompt = q.get("p") || "";
+    var open = el("button", null, "Open in Claude Code");
+    open.onclick = function () {
+      location.href = "vscode://anthropic.claude-code/open?prompt=" + encodeURIComponent(prompt);
+      note("If VS Code did not open, use Copy prompt and paste it into Claude Code.");
+    };
+    var cp = el("button", "ghost", "Copy prompt");
+    cp.onclick = function () { copy(prompt).then(function (ok) { note(ok ? "Copied." : "Select the text above and copy it."); }); };
+    render("Write this post in Claude Code", "Opens a new Claude Code tab in VS Code with this prompt filled in. It drafts the text and builds the image.", prompt, [open, cp]);
+  }
+})();
+</script>
+</body>
+</html>
